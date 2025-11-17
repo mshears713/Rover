@@ -1,0 +1,301 @@
+# Meridian-3 Rover Simulation - Default Configuration Parameters
+#
+# This YAML file contains all configurable parameters for the simulation.
+# Values here represent nominal operating conditions for a healthy rover
+# at mission start.
+#
+# TEACHING PURPOSE:
+#   - Demonstrates configuration management best practices
+#   - Shows how to externalize parameters from code
+#   - Provides a single source of truth for mission parameters
+#   - Enables easy mission scenario creation
+#
+# USAGE:
+#   Load with: yaml.safe_load(open('default_params.yaml'))
+#   Override specific parameters for mission scenarios
+#   Create variants in config/mission_templates/
+#
+# FUTURE EXTENSIONS:
+#   - Environment variable interpolation
+#   - Parameter validation schemas
+#   - Mission template inheritance
+#   - Runtime parameter updates via UI
+
+# ═══════════════════════════════════════════════════════════════
+# SIMULATION CORE PARAMETERS
+# ═══════════════════════════════════════════════════════════════
+
+simulation:
+  # Timestep for simulation loop (seconds)
+  # Smaller = smoother but slower; Larger = faster but choppier
+  # Typical range: 0.1 to 1.0 seconds
+  timestep: 1.0
+
+  # Maximum simulation duration (seconds)
+  # null = unlimited (manual stop required)
+  # 3600 = 1 hour, 88775 = 1 sol
+  max_duration: null
+
+  # Random seed for reproducibility
+  # Set to an integer for deterministic runs
+  # Set to null for random behavior each run
+  random_seed: 42
+
+  # Real-time factor
+  # 1.0 = real-time, >1.0 = faster than real-time, <1.0 = slower
+  # Used for visualization speed control
+  realtime_factor: 1.0
+
+# ═══════════════════════════════════════════════════════════════
+# ROVER INITIAL STATE
+# ═══════════════════════════════════════════════════════════════
+
+rover_state:
+  # Initial position (meters from landing site)
+  position:
+    x: 0.0      # East-West
+    y: 0.0      # North-South
+    z: 0.0      # Elevation
+
+  # Initial orientation (degrees)
+  orientation:
+    roll: 0.0       # -180 to +180
+    pitch: 0.0      # -90 to +90
+    heading: 0.0    # 0=North, 90=East, 180=South, 270=West
+
+  # Initial velocity (m/s)
+  velocity: 0.0     # 0.0 = stationary, max ~0.05 m/s
+
+  # Power system initial state
+  power:
+    battery_voltage: 32.0      # Volts (28-36V nominal)
+    battery_current: 0.5       # Amperes (negative = charging)
+    battery_soc: 85.0          # State of charge (0-100%)
+    solar_panel_voltage: 34.0  # Volts
+    solar_panel_current: 1.2   # Amperes
+
+  # Thermal initial state (Celsius)
+  thermal:
+    cpu_temp: 25.0
+    battery_temp: 20.0
+    motor_temp: 30.0
+    chassis_temp: 15.0
+
+  # Mission time tracking
+  time:
+    mission_time: 0.0  # Seconds since mission start
+    sol: 0             # Martian day number
+    local_time: 0.0    # Seconds into current sol (0-88775)
+
+  # Operational flags
+  flags:
+    is_moving: false
+    is_charging: true
+    heater_active: false
+    science_active: false
+
+# ═══════════════════════════════════════════════════════════════
+# SENSOR SPECIFICATIONS
+# ═══════════════════════════════════════════════════════════════
+
+sensors:
+  # Inertial Measurement Unit (IMU)
+  imu:
+    noise_stddev: 0.1       # Degrees (1-sigma)
+    bias: 0.0               # Constant offset (degrees)
+    drift_rate: 0.0000028   # Degrees/second (0.01°/hour)
+    update_rate: 10         # Hz
+
+  # Power monitoring sensor
+  power_monitor:
+    voltage_noise: 0.05     # Volts (1-sigma)
+    current_noise: 0.01     # Amperes (1-sigma)
+    current_resolution: 0.01 # Amperes (ADC quantization)
+    soc_accuracy: 2.0       # Percent (±2%)
+    update_rate: 1          # Hz
+
+  # Thermal sensor array
+  thermal:
+    noise_stddev: 0.5       # Celsius (1-sigma)
+    resolution: 0.1         # Celsius (ADC quantization)
+    bias: 0.0               # Constant offset (Celsius)
+    update_rate: 1          # Hz
+
+  # Position system (GPS/Odometry)
+  position:
+    noise_stddev: 1.0       # Meters (1-sigma)
+    velocity_noise: 0.01    # m/s (1-sigma)
+    update_rate: 1          # Hz
+
+# ═══════════════════════════════════════════════════════════════
+# ENVIRONMENT PARAMETERS
+# ═══════════════════════════════════════════════════════════════
+
+environment:
+  # Terrain properties
+  terrain:
+    default_slope: 0.0           # Degrees (0 = flat)
+    default_surface: "firm"      # firm, loose, dusty, rocky, icy
+    default_roughness: 0.0       # 0.0 to 1.0
+    default_dust_level: 0.0      # 0.0 (clean) to 1.0 (heavy dust)
+
+  # Hazard event frequencies (mean time between events in seconds)
+  hazards:
+    dust_devil_mtbe: 86400       # ~1 per sol
+    radiation_spike_mtbe: 259200 # ~1 per 3 sols
+    slip_event_mtbe: 43200       # ~2 per sol when moving
+    thermal_shock_mtbe: 172800   # ~1 per 2 sols
+
+  # Orbital mechanics
+  orbit:
+    mars_sol_length: 88775.0  # Seconds (24h 39m 35s)
+    season: "summer"          # summer or winter (simplified)
+    latitude: -4.5            # Degrees (Curiosity landing site)
+    max_solar_power: 100.0    # Watts at optimal angle
+
+# ═══════════════════════════════════════════════════════════════
+# TELEMETRY PIPELINE PARAMETERS
+# ═══════════════════════════════════════════════════════════════
+
+pipeline:
+  # Packetizer settings
+  packetizer:
+    packet_size_max: 1024      # Bytes
+    encoding: "binary"         # binary or json
+    compression: false         # Enable compression
+
+  # Corruptor (transmission degradation)
+  corruptor:
+    packet_loss_rate: 0.02     # 2% packet loss (nominal)
+    bit_flip_rate: 0.000001    # 1 in 1,000,000 bits
+    field_corruption_rate: 0.01 # 1% of fields corrupted
+    timing_jitter_stddev: 0.1  # Seconds (timestamp jitter)
+
+  # Cleaner (validation and repair)
+  cleaner:
+    enable_interpolation: true
+    max_gap_duration: 5.0      # Seconds (max gap to interpolate)
+    range_check_enabled: true
+    sanity_check_enabled: true
+
+  # Anomaly detector
+  anomaly_detector:
+    # Threshold-based detection
+    thresholds:
+      cpu_temp_max: 80.0       # Celsius
+      battery_voltage_min: 28.0 # Volts
+      battery_soc_min: 20.0    # Percent
+
+    # Statistical detection (z-score)
+    statistical:
+      enable_zscore: true
+      zscore_threshold: 3.0    # Standard deviations
+      baseline_window: 100     # Frames for baseline
+
+    # Derivative detection
+    derivative:
+      enable: true
+      temp_max_rate: 5.0       # °C/second
+      voltage_max_rate: 1.0    # V/second
+
+  # Storage settings
+  storage:
+    database_path: "meridian3/data/missions.sqlite"
+    cache_path: "meridian3/data/caches"
+    auto_archive: true
+    compression: false
+
+# ═══════════════════════════════════════════════════════════════
+# VISUALIZATION PARAMETERS
+# ═══════════════════════════════════════════════════════════════
+
+visualization:
+  # Plot styling
+  plots:
+    theme: "plotly_dark"       # plotly theme
+    default_width: 800         # Pixels
+    default_height: 400        # Pixels
+    line_width: 2              # Plot line width
+    show_grid: true
+
+  # Dashboard layout
+  dashboard:
+    refresh_rate: 1.0          # Seconds between updates
+    max_history_points: 1000   # Points to keep in memory
+    alert_flash_duration: 3.0  # Seconds to show alert highlight
+
+  # Timeline settings
+  timeline:
+    default_window: 3600       # Seconds (1 hour)
+    show_anomalies: true
+    show_hazards: true
+    show_commands: true
+
+# ═══════════════════════════════════════════════════════════════
+# LOGGING AND DEBUGGING
+# ═══════════════════════════════════════════════════════════════
+
+logging:
+  # Log levels: DEBUG, INFO, WARNING, ERROR, CRITICAL
+  level: "INFO"
+
+  # Log to file
+  log_to_file: false
+  log_file_path: "meridian3/logs/simulation.log"
+
+  # Performance metrics
+  enable_profiling: false
+  profile_output: "meridian3/logs/profile.txt"
+
+  # Verbose output
+  verbose_sensor_readings: false
+  verbose_environment_updates: false
+  verbose_pipeline_processing: false
+
+# ═══════════════════════════════════════════════════════════════
+# MISSION TEMPLATES
+# ═══════════════════════════════════════════════════════════════
+# These are referenced configurations for specific mission types
+# Actual template files will be in config/mission_templates/
+
+mission_templates:
+  # Easy mission: nominal conditions, low failure rate
+  easy:
+    corruptor:
+      packet_loss_rate: 0.01
+    hazards:
+      dust_devil_mtbe: 172800  # Half frequency
+
+  # Challenging mission: harsh conditions, high failure rate
+  challenging:
+    corruptor:
+      packet_loss_rate: 0.05   # 5% loss
+    hazards:
+      dust_devil_mtbe: 43200   # Double frequency
+    terrain:
+      default_slope: 10.0      # Hilly terrain
+
+  # Science mission: stationary, focused on instruments
+  science:
+    rover_state:
+      flags:
+        is_moving: false
+        science_active: true
+    environment:
+      terrain:
+        default_slope: 0.0     # Flat terrain
+
+  # Traverse mission: long-distance driving
+  traverse:
+    rover_state:
+      flags:
+        is_moving: true
+    simulation:
+      max_duration: 7200       # 2 hours
+    environment:
+      terrain:
+        default_surface: "firm"
+
+# ═══════════════════════════════════════════════════════════════
+# END OF CONFIGURATION
+# ═══════════════════════════════════════════════════════════════
