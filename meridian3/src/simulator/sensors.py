@@ -76,6 +76,12 @@ FUTURE EXTENSIONS:
 
 import random
 from typing import Dict, Any
+import sys
+import os
+
+# Add parent directory to path for imports
+sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..'))
+from utils.math_helpers import add_gaussian_noise, random_walk_drift, clamp
 
 
 class SensorBase:
@@ -114,9 +120,16 @@ class SensorBase:
 
         Returns:
             Measured value with imperfections applied
+
+        Teaching Note:
+            Real sensors combine multiple error sources:
+            - Gaussian noise: Random fluctuations from electronics
+            - Bias: Constant offset (calibration error)
+            - Drift: Time-varying bias (thermal effects, aging)
         """
-        noise = random.gauss(0, self.noise_stddev)
-        measured = true_value + self.bias + self.drift + noise
+        # Use math_helpers for consistent noise generation
+        noisy_value = add_gaussian_noise(true_value, self.noise_stddev)
+        measured = noisy_value + self.bias + self.drift
         return measured
 
     def update_drift(self, dt: float, drift_rate: float):
@@ -126,9 +139,14 @@ class SensorBase:
         Args:
             dt: Time step in seconds
             drift_rate: Drift per second (e.g., 0.001 degrees/sec for IMU)
+
+        Teaching Note:
+            Sensor drift is modeled as a random walk process.
+            This captures the slow, unpredictable changes in sensor bias
+            due to temperature variations, component aging, and other factors.
         """
-        # Drift accumulates over time with small random walk
-        self.drift += drift_rate * dt + random.gauss(0, drift_rate * 0.1)
+        # Use random_walk_drift from math_helpers for realistic drift modeling
+        self.drift = random_walk_drift(self.drift, step_size=drift_rate, dt=dt)
 
     def quantize(self, value: float, resolution: float) -> float:
         """

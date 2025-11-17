@@ -33,30 +33,119 @@ MERIDIAN-3 STORY SNIPPET:
 
 ARCHITECTURE ROLE:
     The generator sits at the top of the simulation stack, orchestrating
-    all other components:
+    all other components.
 
-    ┌────────────────────────────────────────────────┐
-    │           SIMULATION GENERATOR                 │
-    │                                                │
-    │  ┌──────────────────────────────┐             │
-    │  │  Simulation Loop             │             │
-    │  │  ┌────────────────────────┐  │             │
-    │  │  │ 1. Advance time        │  │             │
-    │  │  │ 2. Update state        │  │             │
-    │  │  │ 3. Apply environment   │  │             │
-    │  │  │ 4. Read sensors        │  │             │
-    │  │  │ 5. Yield frame         │  │             │
-    │  │  └────────────────────────┘  │             │
-    │  └──────────────────────────────┘             │
-    │         │      │      │      │                 │
-    │         │      │      │      └─────────────┐   │
-    │         │      │      └────────────┐        │  │
-    │         │      └───────────┐       │        │  │
-    │         └──────┐            │       │        │  │
-    │                │            │       │        │  │
-    └────────────────┼────────────┼───────┼────────┼──┘
-                     ▼            ▼       ▼        ▼
-              [RoverState] [Environment] [Sensors] [Commands]
+COMPLETE SIGNAL FLOW DIAGRAM (Phase 2):
+
+    ╔═══════════════════════════════════════════════════════════════════════╗
+    ║                      SIMULATION GENERATOR LOOP                        ║
+    ║                                                                       ║
+    ║  ┌─────────────────────────────────────────────────────────────────┐ ║
+    ║  │  ITERATION N                     Current Time: t + N*dt         │ ║
+    ║  └─────────────────────────────────────────────────────────────────┘ ║
+    ║                                                                       ║
+    ║  ┌──────────────────────────────────────────────────────────┐        ║
+    ║  │  STEP 1: Update Environment                              │        ║
+    ║  │  ┌────────────────────────────────────────────────────┐  │        ║
+    ║  │  │  Terrain Effects     →  Tilt, Power Multiplier    │  │        ║
+    ║  │  │  Solar Calculation   →  Panel Voltage/Current     │  │        ║
+    ║  │  │  Power Balance       →  Battery SoC, Charging     │  │        ║
+    ║  │  │  Thermal Dynamics    →  All Temperatures          │  │        ║
+    ║  │  │  Hazard Events       →  Dust/Radiation/Slip       │  │        ║
+    ║  │  └────────────────────────────────────────────────────┘  │        ║
+    ║  │                           │                               │        ║
+    ║  │                           ▼                               │        ║
+    ║  │                    [RoverState Updated]                   │        ║
+    ║  └───────────────────────────┬───────────────────────────────┘        ║
+    ║                              │                                        ║
+    ║  ┌───────────────────────────▼───────────────────────────────┐        ║
+    ║  │  STEP 2: Process Commands                                 │        ║
+    ║  │  ┌────────────────────────────────────────────────────┐   │        ║
+    ║  │  │  Low Battery Check  →  Stop if SoC < 20%          │   │        ║
+    ║  │  │  Science Activation →  Enable during daytime      │   │        ║
+    ║  │  │  Future: Command Queue Processing                 │   │        ║
+    ║  │  └────────────────────────────────────────────────────┘   │        ║
+    ║  │                           │                                │        ║
+    ║  │                           ▼                                │        ║
+    ║  │                    [Operational State Changed]             │        ║
+    ║  └───────────────────────────┬───────────────────────────────┘        ║
+    ║                              │                                        ║
+    ║  ┌───────────────────────────▼───────────────────────────────┐        ║
+    ║  │  STEP 3: Update Rover Physics                             │        ║
+    ║  │  ┌────────────────────────────────────────────────────┐   │        ║
+    ║  │  │  Motion Model   →  Update X, Y based on velocity │   │        ║
+    ║  │  │  Friction       →  Decelerate over time          │   │        ║
+    ║  │  │  Future: Advanced dynamics, collision detection  │   │        ║
+    ║  │  └────────────────────────────────────────────────────┘   │        ║
+    ║  │                           │                                │        ║
+    ║  │                           ▼                                │        ║
+    ║  │                    [Position & Motion Updated]             │        ║
+    ║  └───────────────────────────┬───────────────────────────────┘        ║
+    ║                              │                                        ║
+    ║  ┌───────────────────────────▼───────────────────────────────┐        ║
+    ║  │  STEP 4: Read All Sensors                                 │        ║
+    ║  │  ┌────────────────────────────────────────────────────┐   │        ║
+    ║  │  │  IMU Sensor      →  Roll, Pitch, Heading + Noise │   │        ║
+    ║  │  │  Power Sensor    →  Voltages, Currents + Noise   │   │        ║
+    ║  │  │  Thermal Sensor  →  Temperatures + Noise         │   │        ║
+    ║  │  │  Add Drift & Bias to all readings               │   │        ║
+    ║  │  └────────────────────────────────────────────────────┘   │        ║
+    ║  │                           │                                │        ║
+    ║  │                           ▼                                │        ║
+    ║  │                 [Telemetry Frame Created]                  │        ║
+    ║  └───────────────────────────┬───────────────────────────────┘        ║
+    ║                              │                                        ║
+    ║  ┌───────────────────────────▼───────────────────────────────┐        ║
+    ║  │  STEP 5: Add Metadata                                     │        ║
+    ║  │  ┌────────────────────────────────────────────────────┐   │        ║
+    ║  │  │  Frame ID, Timestamp, Sol, Local Time             │   │        ║
+    ║  │  │  Environment Info (terrain, solar, hazards)       │   │        ║
+    ║  │  └────────────────────────────────────────────────────┘   │        ║
+    ║  └───────────────────────────┬───────────────────────────────┘        ║
+    ║                              │                                        ║
+    ║  ┌───────────────────────────▼───────────────────────────────┐        ║
+    ║  │  STEP 6: Yield Telemetry Frame                            │        ║
+    ║  │                                                            │        ║
+    ║  │      frame = {                                            │        ║
+    ║  │          'timestamp': 123.4,                              │        ║
+    ║  │          'roll': 2.3, 'pitch': -1.1, ...                  │        ║
+    ║  │          'battery_soc': 87.3,  ...                        │        ║
+    ║  │          'env_info': {...}                                │        ║
+    ║  │      }                                                     │        ║
+    ║  │                           │                                │        ║
+    ║  │                           ▼                                │        ║
+    ║  │                  [Downstream Pipeline]                     │        ║
+    ║  │                  (Packetizer → Corruptor → ...)           │        ║
+    ║  └───────────────────────────┬───────────────────────────────┘        ║
+    ║                              │                                        ║
+    ║  ┌───────────────────────────▼───────────────────────────────┐        ║
+    ║  │  STEP 7: Advance Time                                     │        ║
+    ║  │                                                            │        ║
+    ║  │      current_time += dt                                   │        ║
+    ║  │      frame_count  += 1                                    │        ║
+    ║  │                                                            │        ║
+    ║  │      Loop back to STEP 1 (until max_duration reached)     │        ║
+    ║  └────────────────────────────────────────────────────────────┘        ║
+    ║                                                                       ║
+    ╚═══════════════════════════════════════════════════════════════════════╝
+
+    DATA FLOW SUMMARY:
+        Ground Truth (RoverState)
+             ↓ environment effects
+        Modified State
+             ↓ sensor noise
+        Noisy Telemetry
+             ↓ yield to consumer
+        Pipeline Processing (Phase 3)
+
+
+    KEY INSIGHT:
+        The simulation maintains TWO parallel data streams:
+        1. TRUE STATE:  Clean RoverState (what's actually happening)
+        2. TELEMETRY:   Noisy sensor readings (what we observe)
+
+        This separation is crucial for testing anomaly detection and
+        data cleaning algorithms in later phases
 
 TEACHING GOALS:
     - Generator pattern for memory efficiency
@@ -150,16 +239,56 @@ class SimulationGenerator:
 
             # STEP 1: Update environment effects
             # (environment modifies rover state based on terrain, hazards, time)
+            # This includes:
+            # - Terrain effects (tilt, power consumption)
+            # - Solar power generation
+            # - Battery charge/discharge
+            # - Thermal dynamics
+            # - Hazard events
             env_info = self.environment.update(self.timestep, self.rover)
 
             # STEP 2: Process commands (if any)
-            # TODO Phase 2: Implement command queue and processing
-            # e.g., drive commands, science instrument activation, etc.
+            # In this phase, we implement basic automatic behaviors
+            # Future phases will add command queue for scripted missions
 
-            # STEP 3: Update rover physics
-            # TODO Phase 2: Implement rover dynamics (motion, power balance, thermal)
-            # For now, rover stays stationary
-            self.rover.mission_time = self.current_time
+            # Example automatic behavior: Stop moving if battery too low
+            if self.rover.battery_soc < 20.0:
+                self.rover.is_moving = False
+                # In a real rover, this would trigger a safe mode
+
+            # Example: Activate science during day when stationary
+            if env_info['solar_angle'] > 30.0 and not self.rover.is_moving:
+                self.rover.science_active = True
+            else:
+                self.rover.science_active = False
+
+            # STEP 3: Update rover physics (motion model)
+            # Environment.update() already handles power, thermal, and hazards
+            # Here we handle simple motion physics
+
+            if self.rover.is_moving:
+                # Simple motion model: rover moves forward at velocity
+                # Direction is determined by heading
+                import math
+                dx = self.rover.velocity * math.cos(math.radians(self.rover.heading)) * self.timestep
+                dy = self.rover.velocity * math.sin(math.radians(self.rover.heading)) * self.timestep
+
+                self.rover.x += dx
+                self.rover.y += dy
+
+                # Slowly reduce velocity due to friction (if not actively driving)
+                # This is a simplification - real rovers have explicit drive commands
+                self.rover.velocity *= 0.98  # 2% decay per timestep
+
+                if self.rover.velocity < 0.001:  # Effectively stopped
+                    self.rover.velocity = 0.0
+                    self.rover.is_moving = False
+
+            # Teaching Note:
+            # The separation between environment effects (Step 1) and rover
+            # dynamics (Step 3) demonstrates modular simulation design.
+            # Environment provides external forces/conditions, rover physics
+            # determines how the rover responds.
 
             # STEP 4: Read all sensors
             telemetry_frame = self.sensors.read_all(self.rover, self.current_time)

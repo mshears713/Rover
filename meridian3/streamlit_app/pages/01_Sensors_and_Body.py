@@ -76,16 +76,89 @@ Meridian-3 awareness of its state.
 
 ---
 
-## Interactive Features
+## Interactive Demonstration (Phase 2)
 
-*Full interactive sensor visualization will be implemented in Phase 4*
+**Try It: Sensor Noise Visualization**
 
-This chapter will include:
-- Real-time sensor readouts
-- Noise visualization
-- Sensor calibration exercises
-- State vs. measurement comparison
+Run a short simulation to see how sensor noise affects measurements.
+""")
 
+# Phase 2: Add simple simulator demonstration
+import sys
+import os
+
+# Add src to path for imports
+sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..', '..', 'meridian3', 'src'))
+
+try:
+    from simulator.rover_state import RoverState
+    from simulator.sensors import SensorSuite
+    import pandas as pd
+
+    # Simulation controls
+    col1, col2 = st.columns(2)
+    with col1:
+        num_samples = st.slider("Number of samples", 10, 100, 50)
+    with col2:
+        if st.button("Run Sensor Test", type="primary"):
+            # Create rover and sensors
+            rover = RoverState()
+            sensors = SensorSuite()
+
+            # Collect samples
+            data = []
+            for i in range(num_samples):
+                frame = sensors.read_all(rover, mission_time=float(i))
+                data.append({
+                    'Sample': i,
+                    'True Roll': rover.roll,
+                    'Measured Roll': frame['roll'],
+                    'True Battery SoC': rover.battery_soc,
+                    'Measured Battery SoC': frame['battery_soc'],
+                    'True CPU Temp': rover.cpu_temp,
+                    'Measured CPU Temp': frame['cpu_temp']
+                })
+
+            df = pd.DataFrame(data)
+
+            # Display statistics
+            st.subheader("Sensor Accuracy Analysis")
+
+            col_a, col_b, col_c = st.columns(3)
+
+            with col_a:
+                roll_error = (df['Measured Roll'] - df['True Roll']).abs().mean()
+                st.metric("Roll Error (avg)", f"{roll_error:.3f}°")
+
+            with col_b:
+                soc_error = (df['Measured Battery SoC'] - df['True Battery SoC']).abs().mean()
+                st.metric("Battery SoC Error (avg)", f"{soc_error:.2f}%")
+
+            with col_c:
+                temp_error = (df['Measured CPU Temp'] - df['True CPU Temp']).abs().mean()
+                st.metric("CPU Temp Error (avg)", f"{temp_error:.2f}°C")
+
+            # Show sample data
+            st.subheader("Sample Sensor Readings")
+            st.dataframe(df.head(10), use_container_width=True)
+
+            st.info("""
+            📊 **Observations:**
+            - Notice how measured values differ slightly from true values
+            - Errors are random (Gaussian noise)
+            - Multiple readings allow statistical estimation
+            - Real rovers use filtering to reduce noise impact
+            """)
+
+except ImportError as e:
+    st.warning(f"""
+    ⚠️ Simulator not yet fully configured.
+    This interactive demo will be available once Phase 2 is complete.
+
+    Error: {str(e)}
+    """)
+
+st.markdown("""
 ---
 
 *Proceed to Chapter 2: Time and Orbits →*

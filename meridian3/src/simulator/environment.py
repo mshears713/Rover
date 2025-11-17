@@ -205,13 +205,79 @@ class HazardSystem:
         Modify rover state based on active hazard.
 
         Args:
-            hazard: Hazard event dictionary
+            hazard: Hazard event dictionary with keys:
+                    - 'type': hazard type (dust_devil, radiation_spike, slip)
+                    - 'severity': 0.0 to 1.0 intensity
+                    - 'duration': seconds
             rover_state: RoverState to modify
 
-        This will be fully implemented in Phase 2.
+        Teaching Note:
+            Hazards are discrete events that temporarily affect rover state.
+            Effects can be immediate (slip) or sustained (dust storm).
+            We apply effects probabilistically and proportional to severity.
         """
-        # Placeholder for Phase 2 implementation
-        # TODO: Implement specific effects for each hazard type
+        hazard_type = hazard['type']
+        severity = hazard['severity']
+
+        if hazard_type == 'dust_devil':
+            # Dust devil effects:
+            # 1. Reduces solar panel efficiency (dust coating)
+            # 2. Adds noise to IMU sensors (vibration)
+            # 3. Slight temperature perturbation
+
+            # Reduce solar efficiency temporarily
+            # This is a simplification - real dust accumulates over time
+            # Here we just add a transient effect
+            # (The Environment.update() will recalculate solar power each tick)
+
+            # Add IMU disturbance (affects orientation readings indirectly)
+            # We don't modify state directly, sensors will add extra noise
+            # But we can add some actual physical rotation
+            rover_state.heading += random.gauss(0, severity * 2.0)  # Up to ±2° heading change
+
+            # Slight temperature perturbation from wind
+            temp_change = random.gauss(0, severity * 5.0)  # Up to ±5°C
+            rover_state.chassis_temp += temp_change * 0.1  # Small instant change
+
+        elif hazard_type == 'radiation_spike':
+            # Radiation spike effects:
+            # 1. Can cause CPU errors / resets (simulated as temp spike)
+            # 2. Causes sensor glitches (handled by sensors layer)
+            # 3. Drains battery slightly (radiation hardening circuits activate)
+
+            # Simulate CPU stress from radiation
+            rover_state.cpu_temp += severity * 10.0  # Up to +10°C spike
+
+            # Small battery drain from SEU (Single Event Upset) recovery
+            soc_loss = severity * 0.1  # Up to 0.1% SoC loss
+            rover_state.battery_soc -= soc_loss
+            rover_state.battery_soc = max(0.0, rover_state.battery_soc)
+
+        elif hazard_type == 'slip':
+            # Slip event effects:
+            # 1. Sudden position change (rover slides)
+            # 2. Orientation change (tilt from uneven surface)
+            # 3. Possible damage (simulated as increased current draw)
+
+            # Position slip (rover slides downhill/sideways)
+            slip_distance = severity * 2.0  # Up to 2 meters
+            slip_angle = random.uniform(0, 360)  # Random direction
+            rover_state.x += slip_distance * math.cos(math.radians(slip_angle))
+            rover_state.y += slip_distance * math.sin(math.radians(slip_angle))
+
+            # Orientation change from slip
+            rover_state.roll += random.gauss(0, severity * 10.0)  # Up to ±10°
+            rover_state.pitch += random.gauss(0, severity * 10.0)
+
+            # Clamp to safe limits
+            rover_state.roll = max(-30, min(30, rover_state.roll))
+            rover_state.pitch = max(-30, min(30, rover_state.pitch))
+
+            # Motor strain from slip recovery
+            rover_state.motor_temp += severity * 5.0  # Motors work harder
+
+        # Log hazard for debugging (would normally go to mission log)
+        # print(f"Hazard: {hazard_type} (severity={severity:.2f})")
         pass
 
 
@@ -294,36 +360,190 @@ class Environment:
             rover_state: RoverState to modify based on environment
 
         This orchestrates all environmental updates each simulation tick.
-        Full implementation in Phase 2.
+        Applies terrain effects, solar power, thermal changes, and hazards.
+
+        Teaching Note:
+            This method demonstrates how multiple subsystems interact to
+            modify rover state. Each effect is applied sequentially, though
+            in reality many effects happen simultaneously. The order matters
+            for some effects (e.g., calculate power before updating battery).
         """
-        # Update time-of-day
+        # ═══════════════════════════════════════════════════════════
+        # STEP 1: Update time-of-day and mission time
+        # ═══════════════════════════════════════════════════════════
         rover_state.local_time += dt
         if rover_state.local_time >= self.orbit.mars_sol_length:
             rover_state.local_time -= self.orbit.mars_sol_length
             rover_state.sol += 1
 
-        # Get current terrain
+        rover_state.mission_time += dt
+
+        # ═══════════════════════════════════════════════════════════
+        # STEP 2: Get current terrain properties
+        # ═══════════════════════════════════════════════════════════
         terrain = self.terrain.get_terrain_at(rover_state.x, rover_state.y)
 
-        # Update hazards and get new events
-        new_hazards = self.hazards.update(dt, rover_state)
+        # Apply terrain effects to rover orientation (tilt)
+        # Slopes cause rover to tilt - affects roll and pitch
+        if rover_state.is_moving and terrain['slope_angle'] > 5.0:
+            # Significant slope: add some roll/pitch variation
+            # This is simplified - real tilt depends on slope direction
+            tilt_effect = terrain['slope_angle'] * 0.3  # 10° slope → 3° tilt
+            rover_state.roll += random.gauss(0, tilt_effect * 0.1)
+            rover_state.pitch += random.gauss(0, tilt_effect * 0.1)
 
-        # Calculate solar power availability
+            # Clamp to reasonable limits
+            rover_state.roll = max(-30, min(30, rover_state.roll))
+            rover_state.pitch = max(-30, min(30, rover_state.pitch))
+
+        # ═══════════════════════════════════════════════════════════
+        # STEP 3: Calculate and apply solar power
+        # ═══════════════════════════════════════════════════════════
         solar_angle = self.orbit.get_solar_angle(rover_state.local_time)
         available_solar = self.orbit.calculate_solar_power(solar_angle, terrain['dust_level'])
 
-        # TODO Phase 2: Apply effects to rover state
-        # - Update solar panel output based on available_solar
-        # - Modify power consumption based on terrain
-        # - Apply hazard effects
-        # - Update thermal state based on day/night cycle
+        # Update solar panel state
+        rover_state.solar_panel_voltage = 34.0 * (available_solar / 100.0)  # Scale to voltage
+        rover_state.solar_panel_current = available_solar / 30.0  # P=VI, nominal 30V
 
+        # ═══════════════════════════════════════════════════════════
+        # STEP 4: Calculate power consumption
+        # ═══════════════════════════════════════════════════════════
+        # Base power consumption (CPU, housekeeping)
+        base_power = 15.0  # Watts
+
+        # Power for movement (if moving)
+        movement_power = 0.0
+        if rover_state.is_moving:
+            # Terrain affects power consumption
+            power_mult = self.terrain.calculate_power_multiplier(
+                terrain['slope_angle'],
+                terrain['surface_type']
+            )
+            movement_power = 40.0 * power_mult  # Base 40W, scaled by terrain
+
+        # Heater power (if active)
+        heater_power = 20.0 if rover_state.heater_active else 0.0
+
+        # Science instruments (if active)
+        science_power = 25.0 if rover_state.science_active else 0.0
+
+        total_power_consumption = base_power + movement_power + heater_power + science_power
+
+        # ═══════════════════════════════════════════════════════════
+        # STEP 5: Update battery state
+        # ═══════════════════════════════════════════════════════════
+        # Net power = solar input - consumption
+        net_power = available_solar - total_power_consumption
+
+        # Update battery current (positive = charging, negative = discharging)
+        rover_state.battery_current = net_power / rover_state.battery_voltage
+        rover_state.is_charging = (net_power > 0)
+
+        # Update state of charge (simplified battery model)
+        # SoC change rate depends on current and battery capacity
+        battery_capacity_wh = 1000.0  # Watt-hours
+        soc_change_per_hour = (net_power / battery_capacity_wh) * 100.0  # Percent per hour
+        soc_change = soc_change_per_hour * (dt / 3600.0)  # Convert to timestep
+
+        rover_state.battery_soc += soc_change
+
+        # Clamp SoC to [0, 100]
+        rover_state.battery_soc = max(0.0, min(100.0, rover_state.battery_soc))
+
+        # Battery voltage varies with SoC (simplified)
+        # Nominal 32V, drops to 28V at low SoC, peaks at 36V when full
+        rover_state.battery_voltage = 28.0 + (rover_state.battery_soc / 100.0) * 8.0
+
+        # ═══════════════════════════════════════════════════════════
+        # STEP 6: Update thermal state
+        # ═══════════════════════════════════════════════════════════
+        # Ambient temperature varies with time of day
+        # Mars: -80°C at night, up to +20°C at noon (equator)
+        ambient_temp = self._calculate_ambient_temperature(solar_angle)
+
+        # CPU temperature depends on ambient and computational load
+        cpu_load_factor = 1.0  # Could vary based on activity
+        cpu_heat_above_ambient = 15.0 * cpu_load_factor  # CPU generates heat
+
+        # Thermal time constant (heat transfer is not instantaneous)
+        thermal_tc = 300.0  # seconds (5 minutes to equilibrate)
+        alpha = dt / thermal_tc  # Exponential approach to target
+
+        target_cpu_temp = ambient_temp + cpu_heat_above_ambient
+        rover_state.cpu_temp += alpha * (target_cpu_temp - rover_state.cpu_temp)
+
+        # Battery temperature tracks ambient (large thermal mass)
+        rover_state.battery_temp += alpha * (ambient_temp - rover_state.battery_temp)
+
+        # Motor temperature depends on movement
+        motor_heat = 10.0 if rover_state.is_moving else 0.0
+        target_motor_temp = ambient_temp + motor_heat
+        rover_state.motor_temp += alpha * (target_motor_temp - rover_state.motor_temp)
+
+        # Chassis tracks ambient closely
+        rover_state.chassis_temp += alpha * (ambient_temp - rover_state.chassis_temp)
+
+        # Heater logic: activate if battery too cold
+        if rover_state.battery_temp < -10.0:
+            rover_state.heater_active = True
+        elif rover_state.battery_temp > 0.0:
+            rover_state.heater_active = False
+
+        # ═══════════════════════════════════════════════════════════
+        # STEP 7: Apply hazard effects
+        # ═══════════════════════════════════════════════════════════
+        new_hazards = self.hazards.update(dt, rover_state)
+
+        for hazard in new_hazards:
+            self.hazards.apply_hazard_effects(hazard, rover_state)
+
+        # ═══════════════════════════════════════════════════════════
+        # STEP 8: Return environment info for telemetry
+        # ═══════════════════════════════════════════════════════════
         return {
             'terrain': terrain,
             'solar_angle': solar_angle,
             'available_solar': available_solar,
+            'power_consumption': total_power_consumption,
+            'net_power': net_power,
+            'ambient_temp': ambient_temp,
             'new_hazards': new_hazards,
         }
+
+    def _calculate_ambient_temperature(self, solar_angle: float) -> float:
+        """
+        Calculate ambient temperature based on solar angle.
+
+        Args:
+            solar_angle: Solar elevation in degrees (0=horizon, 90=overhead)
+
+        Returns:
+            Ambient temperature in Celsius
+
+        Teaching Note:
+            Mars temperature swings are extreme due to thin atmosphere.
+            At night: -80°C to -100°C
+            At noon: -20°C to +20°C (equator, summer)
+            We use a simplified model based on solar angle.
+        """
+        if solar_angle <= 0:
+            # Night time - very cold
+            return -80.0 + random.gauss(0, 5.0)  # -80°C ± some variation
+
+        # Day time - temperature rises with sun angle
+        # Maximum temp around +20°C at solar noon
+        max_day_temp = 20.0
+        min_night_temp = -80.0
+
+        # Sinusoidal variation
+        temp_range = max_day_temp - min_night_temp
+        temp = min_night_temp + temp_range * (solar_angle / 90.0)
+
+        # Add some random variation
+        temp += random.gauss(0, 3.0)
+
+        return temp
 
 
 # ═══════════════════════════════════════════════════════════════
