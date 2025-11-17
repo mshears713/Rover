@@ -15,13 +15,14 @@ MISSION OVERVIEW:
     - Mission operations and archival
 
 LEARNING PATH:
-    This console is organized into 10 chapters, each focusing on a specific
-    aspect of rover operations. Work through them sequentially for the full
-    experience, or jump to topics of interest.
+    This console is organized into 10 chapters plus 5 technical appendices,
+    each focusing on a specific aspect of rover operations. Work through them
+    sequentially for the full experience, or jump to topics of interest.
 
     Chapters 1-4: Simulation fundamentals
     Chapters 5-7: Telemetry pipeline
     Chapters 8-10: Mission operations
+    Appendices A-E: Deep technical documentation
 
 ARCHITECTURE:
     The system follows a layered design:
@@ -80,7 +81,7 @@ with col2:
     st.metric("Mission Status", "OPERATIONAL", delta="Active")
 
 with col3:
-    st.metric("System Modules", "10", delta="All Online")
+    st.metric("System Modules", "15", delta="All Online")
 
 st.markdown("---")
 
@@ -100,8 +101,8 @@ the Martian surface. Your mission: ensure continuous operations despite:
 - **Unknown Hazards**: Terrain challenges, unexpected anomalies
 
 This console is your **mission control interface** and **engineering workbench**.
-Through 10 interactive chapters, you'll learn the complete pipeline from raw
-sensor physics to operational mission data.
+Through 10 interactive chapters plus 5 technical appendices, you'll learn the complete
+pipeline from raw sensor physics to operational mission data.
 
 """)
 
@@ -281,6 +282,52 @@ with col2:
     - Future enhancement roadmap
     """)
 
+# Documentation Appendices
+st.markdown("### 📚 Technical Appendices (Chapters 11-15)")
+
+st.markdown("""
+For deeper technical understanding, comprehensive appendices provide detailed
+code walkthroughs and implementation guides for each major system component.
+""")
+
+col1, col2 = st.columns(2)
+
+with col1:
+    st.markdown("""
+    **Appendix A: Sensor Data Generation** 📡
+    - RoverState architecture deep dive
+    - Sensor noise modeling techniques
+    - Complete data generation pipeline
+    - Code examples and walkthroughs
+
+    **Appendix B: Data Packetization** 📦
+    - Frame-to-packet encoding process
+    - Metadata and timestamp handling
+    - Packet structure internals
+    - Implementation details
+
+    **Appendix C: Data Cleaning** 🔧
+    - Validation algorithms explained
+    - Interpolation strategies
+    - Reconstruction techniques
+    - Quality metrics implementation
+    """)
+
+with col2:
+    st.markdown("""
+    **Appendix D: Anomaly Detection** 🎯
+    - Detection algorithm internals
+    - Statistical methods explained
+    - Alert classification logic
+    - Implementation patterns
+
+    **Appendix E: Data Visualization** 📊
+    - Plotting architecture
+    - Plotly and Matplotlib integration
+    - Real-time dashboard techniques
+    - Visualization best practices
+    """)
+
 # ═══════════════════════════════════════════════════════════════════════════
 # QUICK START GUIDE
 # ═══════════════════════════════════════════════════════════════════════════
@@ -296,11 +343,13 @@ with st.expander("🚀 Quick Start Guide", expanded=False):
     2. Progress through **Chapters 2-4** to learn simulation fundamentals
     3. Master the telemetry pipeline in **Chapters 5-7**
     4. Apply your knowledge in **Chapters 8-10** for mission operations
+    5. Deep dive with **Appendices A-E** for detailed technical documentation
 
     **Want to Jump Around?**
     - Interested in **data quality**? → Start at Chapter 6
     - Curious about **anomaly detection**? → Jump to Chapter 7
     - Ready for **live operations**? → Go to Chapter 8
+    - Need **technical details**? → Check Appendices A-E
 
     **For Educators:**
     - Each chapter is self-contained with teaching notes
@@ -308,12 +357,14 @@ with st.expander("🚀 Quick Start Guide", expanded=False):
     - ASCII diagrams explain architecture
     - Debugging helpers show internal state
     - Extension ideas encourage experimentation
+    - Appendices provide complete code walkthroughs
 
     **For Students:**
     - Interactive controls let you explore parameter effects
     - Visualizations show both "truth" and "measured" data
     - Try breaking things to learn failure modes
     - Check the Engineering Legacy (Ch. 10) for deep dives
+    - Study the Appendices for implementation details
 
     ### Navigation Tips
     - Use the **sidebar** to switch between chapters
