@@ -1,0 +1,35 @@
+# Meridian-3 Rover Simulation - Python Dependencies
+#
+# Install with: pip install -r requirements.txt
+#
+# Core dependencies for Phase 1-5 implementation
+
+# Streamlit - Interactive web application framework
+streamlit>=1.28.0
+
+# Data handling and numerical computation
+numpy>=1.24.0
+pandas>=2.0.0
+
+# Visualization
+plotly>=5.17.0
+matplotlib>=3.7.0
+
+# Configuration management
+pyyaml>=6.0
+
+# Database
+# SQLite is built into Python, no additional package needed
+
+# Testing (for future development)
+pytest>=7.4.0
+pytest-cov>=4.1.0
+
+# Code quality (for future development)
+black>=23.0.0
+flake8>=6.0.0
+mypy>=1.5.0
+
+# Optional: Jupyter for analysis notebooks
+# jupyter>=1.0.0
+# ipykernel>=6.25.0
